@@ -1,72 +1,92 @@
 version: "3"
 
 networks:
-    backend:
-        driver: bridge
     frontend:
         driver: bridge
 
 services:
-    nginx-backend-site:
-        image: nginx:alpine
-        volumes:
-            - ${NGINX_LOCATION_CONFIG_TEMP}:${NGINX_CONFIG_TEMP}
-            - ${ELTA_API_LOCATION_WORKDIR}:${BACKEND_PUBLIC_ROOT}
-        environment:
-            - NGINX_ERROR_LOG=${BACKEND_ERROR_LOG}
-            - NGINX_ACCESS_LOG=${BACKEND_ACCESS_LOG}
-#            - NGINX_PORT=${NGINX_PORT}
-            - NGINX_PORT=80
-            - NGINX_SERVER_NAME=${BACKEND_SERVER_NAME}
-            - NGINX_PUBLIC_ROOT=${BACKEND_PUBLIC_ROOT}
-            - NGINX_FASTCGI_PASS=${BACKEND_FASTCGI_PASS}
-        ports:
-            - 80:${NGINX_PORT}
-        command: >
-            /bin/sh -c
-            "envsubst '
-            $$NGINX_PORT $$NGINX_SERVER_NAME  $$NGINX_PUBLIC_ROOT $$NGINX_FASTCGI_PASS
-            $$NGINX_ERROR_LOG $$NGINX_ACCESS_LOG
-            '< ${NGINX_CONFIG_TEMP}
-            > ${NGINX_CONFIG}
-            && nginx -g 'daemon off;'"
-        networks:
-            - backend
-            - frontend
+#    nginx-backend-site:
+#        image: nginx:alpine
+#        restart: always
+#        volumes:
+#            - ${NGINX_LOCATION_CONFIG_TEMP}:${NGINX_CONFIG_TEMP}
+#            - ${ELTA_API_LOCATION_WORKDIR}:${BACKEND_PUBLIC_ROOT}
+#        environment:
+#            - NGINX_ERROR_LOG=${BACKEND_ERROR_LOG}
+#            - NGINX_ACCESS_LOG=${BACKEND_ACCESS_LOG}
+##            - NGINX_PORT=${NGINX_PORT}
+#            - NGINX_PORT=80
+#            - NGINX_SERVER_NAME=${BACKEND_SERVER_NAME}
+#            - NGINX_PUBLIC_ROOT=${BACKEND_PUBLIC_ROOT}
+#            - NGINX_FASTCGI_PASS=${BACKEND_FASTCGI_PASS}
+#        ports:
+#            - 81:${NGINX_PORT}
+#        command: >
+#            /bin/sh -c
+#            "envsubst '
+#            $$NGINX_PORT $$NGINX_SERVER_NAME  $$NGINX_PUBLIC_ROOT $$NGINX_FASTCGI_PASS
+#            $$NGINX_ERROR_LOG $$NGINX_ACCESS_LOG
+#            '< ${NGINX_CONFIG_TEMP}
+#            > ${NGINX_CONFIG}
+#            && nginx -g 'daemon off;'"
+#        networks:
+#            - frontend
+#        depends_on:
+#            - elta-api
+
     nginx-frontend-site:
         image: nginx:alpine
+#        restart: always
         volumes:
-            - ${NGINX_LOCATION_CONFIG_TEMP}:${NGINX_CONFIG_TEMP}
+#            - ${VHOSTS_NGINX_LOCATION_CONFIG_TEMP}:${VHOSTS_NGINX_CONFIG_TEMP}
+            - ${BACKEND_NGINX_LOCATION_CONFIG_TEMP}:${BACKEND_NGINX_CONFIG_TEMP}
+            - ${FRONTEND_NGINX_LOCATION_CONFIG_TEMP}:${FRONTEND_NGINX_CONFIG_TEMP}
             - ${ELTA_VIEW_LOCATION_WORKDIR}:${FRONTEND_PUBLIC_ROOT}
+            - ${ELTA_API_LOCATION_WORKDIR}:${BACKEND_PUBLIC_ROOT}
         environment:
-            - NGINX_ERROR_LOG=${FRONTEND_ERROR_LOG}
-            - NGINX_ACCESS_LOG=${FRONTEND_ACCESS_LOG}
-#            - NGINX_PORT=${NGINX_PORT}
-            - NGINX_PORT=80
-            - NGINX_SERVER_NAME=${FRONTEND_SERVER_NAME}
-            - NGINX_PUBLIC_ROOT=${FRONTEND_PUBLIC_ROOT}
-            - NGINX_FASTCGI_PASS=${FRONTEND_FASTCGI_PASS}
+            - FRONTEND_NGINX_ERROR_LOG=${FRONTEND_ERROR_LOG}
+            - FRONTEND_NGINX_ACCESS_LOG=${FRONTEND_ACCESS_LOG}
+            - FRONTEND_NGINX_PORT=80
+            - FRONTEND_NGINX_SERVER_NAME=${FRONTEND_SERVER_NAME}
+            - FRONTEND_NGINX_PUBLIC_ROOT=${FRONTEND_PUBLIC_ROOT}
+            - FRONTEND_NGINX_FASTCGI_PASS=${FRONTEND_FASTCGI_PASS}
+            - BACKEND_NGINX_ERROR_LOG=${BACKEND_ERROR_LOG}
+            - BACKEND_NGINX_ACCESS_LOG=${BACKEND_ACCESS_LOG}
+            - BACKEND_NGINX_PORT=81
+            - BACKEND_NGINX_SERVER_NAME=${BACKEND_SERVER_NAME}
+            - BACKEND_NGINX_PUBLIC_ROOT=${BACKEND_PUBLIC_ROOT}
+            - BACKEND_NGINX_FASTCGI_PASS=${BACKEND_FASTCGI_PASS}
         ports:
-            - 81:${NGINX_PORT}
+            - 80:80
+            - 81:81
         command: >
             /bin/sh -c
-            "envsubst '
-            $$NGINX_PORT $$NGINX_SERVER_NAME  $$NGINX_PUBLIC_ROOT $$NGINX_FASTCGI_PASS
-            $$NGINX_ERROR_LOG $$NGINX_ACCESS_LOG
-            '< ${NGINX_CONFIG_TEMP}
-            > ${NGINX_CONFIG}
+            "envsubst '$$FRONTEND_NGINX_PORT $$FRONTEND_NGINX_SERVER_NAME $$FRONTEND_NGINX_PUBLIC_ROOT $$FRONTEND_NGINX_FASTCGI_PASS $$FRONTEND_NGINX_ACCESS_LOG $$FRONTEND_NGINX_ERROR_LOG '< ${FRONTEND_NGINX_CONFIG_TEMP} > ${FRONTEND_NGINX_CONFIG}
+            && envsubst '$$BACKEND_NGINX_PORT $$BACKEND_NGINX_SERVER_NAME $$BACKEND_NGINX_PUBLIC_ROOT $$BACKEND_NGINX_FASTCGI_PASS $$BACKEND_NGINX_ACCESS_LOG $$BACKEND_NGINX_ERROR_LOG '< ${BACKEND_NGINX_CONFIG_TEMP} > ${BACKEND_NGINX_CONFIG}
             && nginx -g 'daemon off;'"
+#            /bin/sh -c
+#            "envsubst '
+#            $$BACKEND_NGINX_PORT $$BACKEND_NGINX_SERVER_NAME
+#            $$FRONTEND_NGINX_PORT $$FRONTEND_NGINX_SERVER_NAME
+#            '< ${VHOSTS_NGINX_CONFIG_TEMP}
+#            > ${VHOSTS_NGINX_CONFIG}
+#            && nginx -g 'daemon off;'"
+
         networks:
-        - backend
-        - frontend
+            - frontend
+        depends_on:
+            - elta-view
+            - elta-api
+
     elta-api:
         build:
             context: elta-api/
         volumes:
             - "${ELTA_API_LOCATION_WORKDIR}:${ELTA_API_WORKDIR}"
         networks:
-            - backend
             - frontend
+        depends_on:
+            - mariadb
 
     elta-view:
         build:
@@ -74,22 +94,23 @@ services:
         volumes:
             - "${ELTA_VIEW_LOCATION_WORKDIR}:${ELTA_VIEW_WORKDIR}"
         networks:
-            - backend
             - frontend
+        depends_on:
+            - mariadb
+
     mariadb:
         image: 'bitnami/mariadb:latest'
         environment:
-        - ALLOW_EMPTY_PASSWORD=${MYSQL_ALLOW_EMPTY_PASSWORD}
-        - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-        - MARIADB_PASSWORD=${MYSQL_PASSWORD}
-        - MARIADB_USER=${MYSQL_USER}
-        - MARIADB_DATABASE=${MYSQL_DATABASE}
-        - MARIADB_EXTRA_FLAGS=--max-connect-errors=${MYSQL_MAX_CONNECT_ERRORS} --max_connections=${MYSQL_MAX_CONNECTIONS}
+            - ALLOW_EMPTY_PASSWORD=${MYSQL_ALLOW_EMPTY_PASSWORD}
+            - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+            - MARIADB_PASSWORD=${MYSQL_PASSWORD}
+            - MARIADB_USER=${MYSQL_USER}
+            - MARIADB_DATABASE=${MYSQL_DATABASE}
+            - MARIADB_EXTRA_FLAGS=--max-connect-errors=${MYSQL_MAX_CONNECT_ERRORS} --max_connections=${MYSQL_MAX_CONNECTIONS}
         ports:
-        - "${MYSQL_POST}:${MYSQL_CONTAINER_POST}"
+            - "${MYSQL_POST}:${MYSQL_CONTAINER_POST}"
         volumes:
-        - "./mariadb/init:/docker-entrypoint-initdb.d"
-        - "${MYSQL_DATA_PATH}:${MYSQL_CONTAINER_DATA_PATH}"
+            - "./mariadb/init:/docker-entrypoint-initdb.d"
+            - "${MYSQL_DATA_PATH}:${MYSQL_CONTAINER_DATA_PATH}"
         networks:
-        - backend
-        - frontend
+            - frontend

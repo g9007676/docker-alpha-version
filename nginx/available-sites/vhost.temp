@@ -1,0 +1,4 @@
+upstream frontend {
+  server ${BACKEND_NGINX_SERVER_NAME}:${BACKEND_NGINX_PORT};
+  server ${FRONTEND_NGINX_SERVER_NAME}:${FRONTEND_NGINX_PORT};
+}
